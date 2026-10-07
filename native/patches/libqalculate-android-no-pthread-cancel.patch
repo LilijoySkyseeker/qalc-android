@@ -1,0 +1,26 @@
+--- a/libqalculate/util.cc	2026-10-07 11:45:40.908467644 -0700
++++ b/libqalculate/util.cc	2026-10-07 11:45:47.189707958 -0700
+@@ -1159,8 +1159,10 @@
+ }
+ 
+ void Thread::enableAsynchronousCancel() {
++#ifndef __ANDROID__ // bionic has no thread cancellation
+ 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+ 	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
++#endif
+ }
+ 
+ void *Thread::doRun(void *data) {
+@@ -1183,7 +1185,12 @@
+ 
+ bool Thread::cancel() {
+ 	if(!running) return true;
++#ifdef __ANDROID__
++	// bionic has no pthread_cancel: a calculation that ignores abort() keeps running
++	return false;
++#else
+ 	running = pthread_cancel(m_thread) != 0;
++#endif
+ 	return !running;
+ }
+ 

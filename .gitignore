@@ -1,0 +1,10 @@
+.direnv/
+.gradle/
+build/
+app/build/
+local.properties
+native/prebuilt/
+native/src/
+.superpowers/
+*.jks
+*.apk
