@@ -19,6 +19,22 @@ android {
         externalNativeBuild { cmake { arguments += "-DANDROID_STL=c++_static" } }
     }
 
+    signingConfigs {
+        create("release") {
+            // Supplied by release.sh from the owner's environment; never committed.
+            System.getenv("QALC_KEYSTORE")?.let { storeFile = file(it) }
+            storePassword = System.getenv("QALC_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("QALC_KEY_ALIAS")
+            keyPassword = System.getenv("QALC_KEY_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        release {
+            if (System.getenv("QALC_KEYSTORE") != null) signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
     externalNativeBuild {
         cmake { path = file("src/main/cpp/CMakeLists.txt") }
     }
