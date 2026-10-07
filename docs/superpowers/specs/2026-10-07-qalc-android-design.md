@@ -7,7 +7,7 @@ Date: 2026-10-07 · Status: draft for owner review
 An Android calculator that embeds the real libqalculate engine, so the full
 power of Qalculate is on the owner's phone. The driving use is construction
 work in a mixed metric/imperial setting: typing quantities with units
-(`5 ft 3 1/2 in + 30 cm to mm`) and getting correct, readable answers,
+(`5 ft 3.5 in + 30 cm to mm`) and getting correct, readable answers,
 offline, with every small calculation kept in history and easy to copy.
 
 Success: the owner uses it on the job instead of the existing Android apps,
@@ -68,13 +68,15 @@ libqalculate. Small, stable surface:
 All calls run on a single dedicated engine thread (libqalculate's
 Calculator is a global, not thread-safe).
 
-**Data files** — libqalculate's data (units, functions, datasets) is bundled
-in APK assets and copied to app storage on first launch and on app version
-change.
+**Data files** — libqalculate is built with `--enable-compiled-definitions`,
+so its units, functions and datasets are compiled into the library; nothing
+is copied at runtime. (Revised during planning; replaces bundling the XML
+files as assets.)
 
-**Currency (`RatesUpdater.kt`)** — Kotlin downloads the same exchange-rate
-files libqalculate would fetch, writes them where the engine reads them, and
-calls `reloadExchangeRates()`. Updates when rates are older than one day and
+**Currency (`RatesUpdater.kt`)** — the bridge asks the engine for its own
+rate-source URLs and file paths (`getExchangeRatesUrl/FileName`), Kotlin
+downloads each into place, then calls `reloadExchangeRates()`. Nothing about
+the sources is hardcoded in the app. Updates when rates are older than one day and
 the network is available; otherwise uses the last downloaded rates. Before
 the first successful download, currency conversions show the engine's
 "no exchange rates" error. Results computed with stale rates show the engine's own
@@ -90,6 +92,9 @@ and let libqalculate fetch itself.
 - **Live result:** each edit cancels any running calculation and starts a
   new one (timeout ~2 s; on timeout show "taking too long" and don't save).
   Errors/warnings show in place of the result, without blocking typing.
+  Expressions containing `:=` or `save(` are not evaluated live (typing
+  `x := 5` would otherwise define `x` at each partial step); they run on
+  commit.
 - **Commit rule ("save when you move on"):** the current line is appended to
   history when the user presses Enter, clears the line, or the app goes to
   the background — only if it evaluated successfully and differs from the
@@ -187,5 +192,5 @@ Detailed design happens when we start it.
 
 - **Cross-compiling GMP/MPFR/libxml2/libqalculate with the NDK** is the
   main unknown; build-order step 1 exists to retire it first.
-- **Exchange-rate file formats/locations** are libqalculate internals and
-  may change between versions; pinned libqalculate version contains this.
+- **Exchange-rate files** are libqalculate internals; asking the engine for
+  its URLs and paths keeps the app in step with whatever version is pinned.
