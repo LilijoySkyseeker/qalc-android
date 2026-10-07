@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <iostream>
 #include <libqalculate/includes.h>
+#include <thread>
 
 namespace fs = std::filesystem;
 
@@ -72,6 +73,27 @@ static void test_timeout() {
 	CHECK_TEXT("1 + 1", "2");
 }
 
+static void test_abort_from_other_thread() {
+	std::chrono::steady_clock::duration abort_took{};
+	std::thread aborter([&] {
+		std::this_thread::sleep_for(std::chrono::milliseconds(300));
+		auto t = std::chrono::steady_clock::now();
+		engine_abort();
+		abort_took = std::chrono::steady_clock::now() - t;
+	});
+	auto start = std::chrono::steady_clock::now();
+	CalcResult r = engine_calculate("factorial(100000000)", 10000);
+	auto elapsed = std::chrono::steady_clock::now() - start;
+	aborter.join();
+	CHECK(r.aborted);
+	CHECK(elapsed < std::chrono::seconds(2));
+	CHECK(abort_took < std::chrono::milliseconds(100));
+	// a stale abort before the next calculation does not affect it
+	engine_abort();
+	CalcResult next = engine_calculate("2 + 2", 2000);
+	CHECK(next.ok && next.text == "4");
+}
+
 static void test_settings() {
 	engine_apply(settings(APPROXIMATION_EXACT, FRACTION_FRACTIONAL));
 	CHECK_TEXT("1/3 + 1/4", "7/12");
@@ -106,6 +128,7 @@ int main() {
 	test_units(dir);
 	test_errors_and_warnings();
 	test_timeout();
+	test_abort_from_other_thread();
 	test_settings();
 	test_rates(dir);
 	test_definitions_persist(dir);

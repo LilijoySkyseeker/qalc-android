@@ -8,3 +8,4 @@ native/src/
 .superpowers/
 *.jks
 *.apk
+app/.cxx/

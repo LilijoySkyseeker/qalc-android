@@ -14,8 +14,8 @@
         };
       };
       android = pkgs.androidenv.composeAndroidPackages {
-        platformVersions = [ "35" ];
-        buildToolsVersions = [ "35.0.0" ];
+        platformVersions = [ "37" ];
+        buildToolsVersions = [ "37.0.0" ];
         includeNDK = true;
         cmakeVersions = [ "3.22.1" ];
       };
@@ -37,7 +37,7 @@
         shellHook = ''
           export ANDROID_NDK_ROOT=$(echo ${sdk}/ndk/* | cut -d' ' -f1)
           # aapt2 from Maven is dynamically linked; use the SDK's patched one
-          export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdk}/build-tools/35.0.0/aapt2"
+          export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdk}/build-tools/37.0.0/aapt2"
         '';
       };
     };

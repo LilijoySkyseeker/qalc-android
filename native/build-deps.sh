@@ -47,7 +47,7 @@ build() {
     if [ -e "$p" ]; then patch -d "$dir" -p1 -s < "$p"; fi
   done
   (cd "$dir" &&
-    ./configure --host=$triple --prefix="$prefix" --enable-static --disable-shared "$@" > "$src/$name.configure.log" &&
+    ./configure --host=$triple --prefix="$prefix" --enable-static --disable-shared --with-pic "$@" > "$src/$name.configure.log" &&
     make -j"$jobs" > "$src/$name.make.log" 2>&1 &&
     make install > "$src/$name.install.log")
 }
