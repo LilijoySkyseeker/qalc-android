@@ -6,4 +6,7 @@ interface Calculator {
 
     /** Aborts the running calculation, if any. Returns immediately. */
     fun abort()
+
+    /** Persists user variables and functions (e.g. from `x := 5`). */
+    suspend fun saveDefinitions(): Boolean
 }

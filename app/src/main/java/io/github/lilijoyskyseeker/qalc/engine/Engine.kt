@@ -32,7 +32,7 @@ class Engine(private val userDir: File) : Calculator {
         )
     }
 
-    suspend fun saveDefinitions(): Boolean = onEngine { Native.saveDefinitions() }
+    override suspend fun saveDefinitions(): Boolean = onEngine { Native.saveDefinitions() }
 
     suspend fun rateSources(): List<RateSource> = onEngine {
         Native.rateSources().toList().chunked(2) { (url, path) -> RateSource(url, path) }
