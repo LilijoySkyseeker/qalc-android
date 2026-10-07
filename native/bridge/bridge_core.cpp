@@ -102,7 +102,7 @@ CalcResult engine_calculate(const std::string &expr, int timeoutMs) {
 
 void engine_abort() {
 	abort_requested = true;
-	CALCULATOR->abort();
+	if(CALCULATOR) CALCULATOR->abort();  // the UI may abort before engine_init ran
 }
 
 void engine_apply(const EngineSettings &s) {

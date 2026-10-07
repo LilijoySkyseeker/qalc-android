@@ -124,6 +124,8 @@ static void test_definitions_persist(const fs::path &dir) {
 }
 
 int main() {
+	// The UI may abort before the engine has started.
+	engine_abort();
 	fs::path dir = fresh_dir();
 	test_units(dir);
 	test_errors_and_warnings();

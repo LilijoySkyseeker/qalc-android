@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -25,18 +26,24 @@ import org.junit.Test
 private class FakeCalculator : Calculator {
     val calculated = mutableListOf<String>()
     var aborts = 0
+    private var started = 0
+    private var abortedUpTo = 0
     var saves = 0
     val delays = mutableMapOf<String, Long>()
     val results = mutableMapOf<String, CalcResult>()
 
     override suspend fun calculate(expr: String): CalcResult {
         calculated += expr
+        val id = ++started
         delays[expr]?.let { delay(it) }
+        // Like the engine: abort() stops every calculation already running.
+        if (id <= abortedUpTo) return CalcResult(expr, expr, emptyList(), ok = false, aborted = true)
         return results[expr] ?: CalcResult("=$expr", expr, emptyList(), ok = true, aborted = false)
     }
 
     override fun abort() {
         aborts++
+        abortedUpTo = started
     }
 
     override suspend fun saveDefinitions(): Boolean {
@@ -129,6 +136,16 @@ class CalcViewModelTest {
     }
 
     @Test
+    fun reverseAssignmentIsNotEvaluatedLiveOnlyOnCommit() = runTest(dispatcher) {
+        type("q =:")
+        type("q =: 5")
+        assertTrue(calc.calculated.isEmpty())
+        commit(CommitReason.Enter)
+        assertEquals(listOf("q =: 5"), calc.calculated)
+        assertEquals(1, calc.saves)
+    }
+
+    @Test
     fun lateResultForOlderInputIsDiscarded() = runTest(dispatcher) {
         calc.delays["1+"] = 500
         vm.onInput("1+")
@@ -136,6 +153,17 @@ class CalcViewModelTest {
         advanceUntilIdle()
         assertEquals("=1+2", vm.state.value.live?.text)
         assertTrue(calc.aborts >= 1)
+    }
+
+    @Test
+    fun typingRightAfterEnterDoesNotAbortTheCommit() = runTest(dispatcher) {
+        type("2^10")
+        calc.delays["2^10"] = 300
+        vm.commit(CommitReason.Enter)
+        runCurrent()
+        vm.onInput("2")
+        advanceUntilIdle()
+        assertEquals(listOf("2^10"), vm.state.value.history.map { it.expr })
     }
 
     @Test

@@ -6,6 +6,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 /** Throws on failure. */
@@ -28,10 +29,14 @@ class RatesUpdater(
         val all = sources()
         val first = File(all.first().path)
         if (first.exists() && now() - first.lastModified() < MAX_AGE_MS) return false
-        val refreshed = withContext(Dispatchers.IO) { all.count { download(it) } }
-        if (refreshed == 0) return false
-        reload()
-        return true
+        // Finish once started: files written without a reload would sit unused
+        // (the next check sees them as fresh), e.g. after a rotation cancels us.
+        return withContext(NonCancellable + Dispatchers.IO) {
+            val refreshed = all.count { download(it) }
+            if (refreshed == 0) return@withContext false
+            reload()
+            true
+        }
     }
 
     private fun download(source: RateSource): Boolean {

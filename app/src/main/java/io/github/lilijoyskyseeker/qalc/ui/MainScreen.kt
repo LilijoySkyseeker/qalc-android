@@ -60,13 +60,13 @@ import io.github.lilijoyskyseeker.qalc.history.HistoryFormat
 fun MainScreen(vm: CalcViewModel, onOpenSettings: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var field by remember { mutableStateOf(TextFieldValue(state.input)) }
+    var field by remember { mutableStateOf(fieldFor(state.input)) }
     var selected by remember { mutableStateOf(emptySet<Int>()) }
     val selecting = selected.isNotEmpty()
 
     // The view model clears the input on commit; mirror that into the field.
     LaunchedEffect(state.input) {
-        if (field.text != state.input) field = TextFieldValue(state.input, TextRange(state.input.length))
+        if (field.text != state.input) field = fieldFor(state.input)
     }
 
     fun edit(value: TextFieldValue) {
@@ -220,6 +220,9 @@ private fun LiveResult(live: CalcResult?) {
         }
     }
 }
+
+/** The input as a field with the cursor at the end, ready to keep typing. */
+internal fun fieldFor(input: String) = TextFieldValue(input, TextRange(input.length))
 
 private fun Set<Int>.toggle(i: Int) = if (i in this) this - i else this + i
 

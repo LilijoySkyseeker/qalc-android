@@ -7,10 +7,13 @@ import kotlinx.coroutines.withContext
 
 /**
  * libqalculate is one global, not thread-safe object, so every call except
- * abort() runs on a single dedicated thread.
+ * abort() runs on a single dedicated thread. Its stack is 16 MB because
+ * libqalculate recurses deeply on nested input (1 MB overflows on 300 nested
+ * sqrt calls; desktop runs it on an 8 MB main thread).
  */
 class Engine(private val userDir: File) : Calculator {
-    private val thread = Executors.newSingleThreadExecutor { Thread(it, "qalc-engine") }.asCoroutineDispatcher()
+    private val thread = Executors.newSingleThreadExecutor { Thread(null, it, "qalc-engine", 16L shl 20) }
+        .asCoroutineDispatcher()
     private var initialized = false
 
     private suspend fun <T> onEngine(block: () -> T): T = withContext(thread) {

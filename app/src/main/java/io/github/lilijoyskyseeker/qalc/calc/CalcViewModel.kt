@@ -31,11 +31,13 @@ class CalcViewModel(
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var liveJob: Job? = null
+    private var commitJob: Job? = null
 
     fun onInput(text: String) {
         _state.update { it.copy(input = text) }
         liveJob?.cancel()
-        calc.abort()
+        // Never abort a commit in flight: the line would silently miss history.
+        if (commitJob?.isActive != true) calc.abort()
         if (text.isBlank() || hasSideEffects(text)) {
             _state.update { it.copy(live = null) }
             return
@@ -51,7 +53,7 @@ class CalcViewModel(
         if (reason != CommitReason.Background) _state.update { it.copy(input = "", live = null) }
         if (text.isBlank()) return
         liveJob?.cancel()
-        viewModelScope.launch {
+        commitJob = viewModelScope.launch {
             val result = calc.calculate(text)
             if (hasSideEffects(text)) calc.saveDefinitions()
             if (!result.ok || result.aborted) return@launch
@@ -70,6 +72,6 @@ class CalcViewModel(
 
     companion object {
         /** Assignments define variables at every partial step, so they only run on commit. */
-        fun hasSideEffects(text: String) = ":=" in text || "save(" in text
+        fun hasSideEffects(text: String) = ":=" in text || "=:" in text || "save(" in text
     }
 }

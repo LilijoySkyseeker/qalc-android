@@ -4,6 +4,9 @@ import io.github.lilijoyskyseeker.qalc.engine.RateSource
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -65,6 +68,29 @@ class RatesUpdaterTest {
         failing += sources.map { it.url }
         assertFalse(updater().updateIfStale())
         assertEquals(0, reloads)
+    }
+
+    @Test
+    fun cancelledDuringDownloadStillReloads() = runTest {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val updater = RatesUpdater(
+            sources = { sources },
+            reload = { reloads++; true },
+            fetch = { url ->
+                entered.countDown()
+                release.await()
+                "data from $url".toByteArray()
+            },
+            now = { now },
+        )
+        // e.g. the activity is destroyed by a rotation mid-download
+        val job = launch(Dispatchers.Default) { updater.updateIfStale() }
+        entered.await()
+        job.cancel()
+        release.countDown()
+        job.join()
+        assertEquals(1, reloads)
     }
 
     companion object {
