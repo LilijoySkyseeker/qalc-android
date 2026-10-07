@@ -3,25 +3,38 @@ package io.github.lilijoyskyseeker.qalc
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import io.github.lilijoyskyseeker.qalc.engine.Engine
-import java.io.File
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.lilijoyskyseeker.qalc.calc.CalcViewModel
+import io.github.lilijoyskyseeker.qalc.calc.CommitReason
+import io.github.lilijoyskyseeker.qalc.ui.MainScreen
+import io.github.lilijoyskyseeker.qalc.ui.QalcTheme
 
 class MainActivity : ComponentActivity() {
+    private val vm by viewModels<CalcViewModel> {
+        viewModelFactory {
+            initializer {
+                val app = application as QalcApp
+                CalcViewModel(app.engine, app.history)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val engine = Engine(File(filesDir, "qalculate"))
+        enableEdgeToEdge()
+        lifecycle.addObserver(
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_STOP) vm.commit(CommitReason.Background)
+            },
+        )
         setContent {
-            MaterialTheme {
-                var text by remember { mutableStateOf("…") }
-                LaunchedEffect(Unit) { text = engine.calculate("5 ft + 30 cm to in").text }
-                Text("5 ft + 30 cm to in = $text")
+            QalcTheme {
+                MainScreen(vm, onOpenSettings = {})
             }
         }
     }
