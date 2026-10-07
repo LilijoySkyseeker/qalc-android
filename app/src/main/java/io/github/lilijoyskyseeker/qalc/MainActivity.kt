@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.lilijoyskyseeker.qalc.calc.CalcViewModel
 import io.github.lilijoyskyseeker.qalc.calc.CommitReason
+import io.github.lilijoyskyseeker.qalc.rates.RatesUpdater
 import io.github.lilijoyskyseeker.qalc.settings.Settings
 import io.github.lilijoyskyseeker.qalc.settings.SettingsStore
 import io.github.lilijoyskyseeker.qalc.ui.MainScreen
@@ -45,6 +46,11 @@ class MainActivity : ComponentActivity() {
             settingsStore.settings.collect {
                 engine.apply(it.toEngine())
                 vm.onInput(vm.state.value.input) // re-evaluate the live line with the new settings
+            }
+        }
+        lifecycleScope.launch {
+            if (RatesUpdater(engine::rateSources, engine::reloadRates).updateIfStale()) {
+                vm.onInput(vm.state.value.input) // re-evaluate with fresh rates
             }
         }
         lifecycle.addObserver(
