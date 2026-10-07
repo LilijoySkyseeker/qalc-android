@@ -58,8 +58,9 @@
 **Interfaces (Produces):**
 ```cpp
 struct CalcResult { std::string text, parsed; std::vector<std::string> messages; bool ok, aborted; };
-struct EngineSettings { int angleUnit; int approximation; int precision; int fractionFormat; int autoConversion; };
-  // values are libqalculate enum ints: AngleUnit, ApproximationMode, NumberFractionFormat, AutoPostConversion
+struct EngineSettings { int angleUnit; int approximation; int precision; int fractionFormat; int autoConversion; int fixedDenominator; };
+  // values are libqalculate enum ints: AngleUnit, ApproximationMode, NumberFractionFormat, AutoPostConversion;
+  // fixedDenominator > 0 is passed to CALCULATOR->setFixedDenominator()
 struct RateSource { std::string url, path; };
 void engine_init(const std::string& userDir);   // setenv QALCULATE_USER_DIR, new Calculator, loadGlobalDefinitions,
                                                  // loadLocalDefinitions, loadExchangeRates, exchange-rate warnings on
@@ -81,6 +82,7 @@ bool engine_reload_rates();
   - `"10 / 0"` → ok true, messages contain `"Division by zero."`
   - `"factorial(100000000)"` with timeout 200 → aborted true, returns in < 2 s
   - after apply `APPROXIMATION_EXACT` + `FRACTION_FRACTIONAL`: `"1/3 + 1/4"` → `"7/12"`
+  - after apply `APPROXIMATION_APPROXIMATE` + `FRACTION_COMBINED_FIXED_DENOMINATOR`, denominator 16: `"1 m to ft"` → `"3 ft + (3 + 6/16) in"`
   - `engine_rate_sources()` → 4 entries, each url starts with `https://` and path starts with userDir
   - copy the fixture (ECB XML with `USD rate="1.1"`) to source 1's path, `engine_reload_rates()`, then `"1 EUR to USD"` → `"1.1 USD"`
   - `"y := 7"`, then `engine_save_definitions()`, re-init in the same dir, then `"2y"` → `"14"`
@@ -107,7 +109,7 @@ interface Calculator { suspend fun calculate(expr: String): CalcResult; fun abor
 class Engine(userDir: File) : Calculator {
   suspend fun apply(s: EngineSettings); suspend fun saveDefinitions(): Boolean
   suspend fun rateSources(): List<RateSource>; suspend fun reloadRates(): Boolean }
-data class EngineSettings(val angleUnit: Int, val approximation: Int, val precision: Int, val fractionFormat: Int, val autoConversion: Int)
+data class EngineSettings(val angleUnit: Int, val approximation: Int, val precision: Int, val fractionFormat: Int, val autoConversion: Int, val fixedDenominator: Int)
 ```
 All `Engine` suspend calls run on one single-thread dispatcher (`Executors.newSingleThreadExecutor().asCoroutineDispatcher()`). `abort()` calls through directly. `calculate` uses a 2000 ms timeout. JNI builds `CalcResult` with `NewObject`.
 
@@ -206,7 +208,7 @@ Rules:
 ```kotlin
 enum class AngleUnit(val q: Int) { Radians(1), Degrees(2), Gradians(3) }
 enum class Approximation(val q: Int) { Exact(0), TryExact(1), Approximate(2) }
-enum class FractionDisplay(val q: Int) { Decimal(0), Fraction(2), Mixed(3) }
+enum class FractionDisplay(val q: Int, val denominator: Int = 0) { Decimal(0), Fraction(2), Mixed(3), Nearest8(5, 8), Nearest16(5, 16), Nearest32(5, 32) }
 enum class AutoConversion(val q: Int) { None(0), OptimalSi(1), Base(2), Optimal(3) }
 data class Settings(val angle: AngleUnit = AngleUnit.Radians, val approximation: Approximation = Approximation.TryExact,
   val precision: Int = 10, val fractions: FractionDisplay = FractionDisplay.Decimal, val autoConversion: AutoConversion = AutoConversion.Optimal) {
@@ -215,11 +217,11 @@ class SettingsStore(context: Context) { val settings: Flow<Settings>; suspend fu
 ```
 The `q` values are libqalculate 5.12.0 enum ints (checked against `includes.h`). Precision range: 2–100.
 
-- [ ] **Step 1: Write failing test:** `toEngine()` of the defaults == `EngineSettings(1, 1, 10, 0, 3)`; Degrees + Mixed map to 2 and 3.
+- [ ] **Step 1: Write failing test:** `toEngine()` of the defaults == `EngineSettings(1, 1, 10, 0, 3, 0)`; Degrees + Mixed map to 2 and 3; Nearest16 maps to fractionFormat 5, fixedDenominator 16.
 - [ ] **Step 2: Run** `./gradlew testDebugUnitTest --tests '*settings*'`. Expected: FAIL.
 - [ ] **Step 3: Implement** the store (Preferences DataStore) and a screen with one row per setting plus "Clear history" (confirm dialog → `CalcViewModel.clearHistory()`, which also clears the file).
 - [ ] **Step 4: Run** the tests and `assembleDebug`. Expected: PASS, success.
-- [ ] **Step 5: Owner check:** set fractions to Mixed, then `160 cm to ft` → `5 ft + (2 + 126/127) in`; degrees → `sin(90)` = `1`; settings survive an app restart.
+- [ ] **Step 5: Owner check:** set fractions to Mixed, then `160 cm to ft` → `5 ft + (2 + 126/127) in`; Nearest 1/16 → `1 m to ft` = `3 ft + (3 + 6/16) in`; degrees → `sin(90)` = `1`; settings survive an app restart.
 - [ ] **Step 6: Commit** (`feat: settings screen`).
 
 ### Task 8: Currency updates (milestone 4)

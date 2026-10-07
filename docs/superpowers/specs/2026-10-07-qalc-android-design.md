@@ -114,7 +114,8 @@ Stored in Jetpack DataStore, applied to the engine at startup and on change:
 - angle unit (rad / deg / gra)
 - exact vs approximate
 - precision (significant digits)
-- fraction display (decimal / fraction / mixed, e.g. `5 3/8 in`)
+- fraction display (decimal / fraction / mixed / mixed to nearest 1/8,
+  1/16 or 1/32 — e.g. `1 m to ft` → `3 ft + (3 + 6/16) in`)
 - automatic unit conversion (none / optimal / base / SI)
 - clear history
 
